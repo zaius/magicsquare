@@ -1,30 +1,50 @@
-// http://www.engbedded.com/fusecalc/
-//
 #include <avr/io.h>
-#include <avr/iom32.h>
+#include <avr/iom8.h>
+#include <avr/interrupt.h>
 
-// TODO: pass this from the makefile
-#define F_CPU 1000000UL  // 1 MHz
-#include <util/delay.h>
+#include "conf.h"
 
+#include "switch.h"
+#include "network.h"
+
+#define MASTER 1
+
+void master_init(void);
+void slave_init(void);
+
+uint8_t group_index = 1;
 
 int main(void) {
-  uint8_t temp = 0x00;
+  // Disable the analog comparitor before enabling interrupts, otherwise a
+  // floating analog pin will fire interrupts.
+  ACSR = _BV(ACD);
+  ADCSRA = 0;
+
+  network_init();
+
+#ifdef MASTER
+  master_init();
+#else
+  slave_init();
+#endif
+
+  // Enable interrupts
+  sei();
+
+  while (TRUE) {
+    // wait for interrupts
+  }
+}
+
+
+void master_init(void) {
+  DDRD = 0x00;
+  DDRB = 0xff;
+}
+
+void slave_init(void) {
+  switch_init();
 
   DDRD = 0x00;
   DDRB = 0xff;
-
-  while (1) {
-    PORTB = temp;
-
-    if (bit_is_clear(PIND, 0)) temp++; // Count one down
-    if (bit_is_clear(PIND, 1)) temp--; // Count one up
-    if (bit_is_clear(PIND, 2)) temp = (temp >> 1) | (temp << 7); // Rotate right. ASM ror
-    if (bit_is_clear(PIND, 3)) temp = temp << 1 | (temp >> 7); // Rotate left. ASM rol
-    if (bit_is_clear(PIND, 4)) temp = ~temp; // Invert. ASM com
-    if (bit_is_clear(PIND, 5)) temp = ~temp + 1; // Invert and add 1. ASM neg
-    if (bit_is_clear(PIND, 6)) temp = (temp >> 4) + (temp << 4); // Swap nibbles; ASM swap
-
-    _delay_ms(100);
-  }
 }
