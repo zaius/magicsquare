@@ -1,6 +1,8 @@
 #include "conf.h"
-#include "sleep.h"
+// Has to come after conf so F_CPU is defined
 #include <util/delay.h>
+
+#include "sleep.h"
 
 // TODO: there might be a more standard way to deal with delays now
 void msleep(uint16_t delay) {

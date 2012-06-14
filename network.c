@@ -1,9 +1,6 @@
 #include "conf.h"
 #include "network.h"
 
-#include <avr/io.h>
-#include <avr/interrupt.h>
-
 void network_send_byte(void);
 
 // Initialise the on-chip UART
@@ -21,6 +18,11 @@ void network_init() {
 
   // Set the size to be 8 bits
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
+
+  // Pin 0: UART RXD
+  // Pin 1: UART TXD
+  // Pin 2: RS485 Transmit enable
+  DDRD |= 0x06;
 }
 
 

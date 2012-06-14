@@ -1,8 +1,45 @@
+#include <avr/io.h>
+#include <avr/iom8.h>
+#include <avr/interrupt.h>
+
 #include <inttypes.h>
 
 #define NULL ((void *)0)
 #define TRUE 1
 #define FALSE 0
+
+#define SWITCHES 0xf0
+
+#define LED1 PORTB
+#define LED1_MASK 0x07
+#define BLUE1 0
+#define GREEN1 1
+#define RED1 2
+
+#define LED2 PORTB
+#define LED2_MASK 0x38
+#define BLUE2 3
+#define GREEN2 4
+#define RED2 5
+
+#define LED3 PORTC
+#define LED3_MASK 0x07
+#define BLUE3 0
+#define GREEN3 1
+#define RED3 2
+
+#define LED4 PORTC
+#define LED4_MASK 0x38
+#define BLUE4 3
+#define GREEN4 4
+#define RED4 5
+
+extern volatile uint8_t* LEDS[4];
+extern const uint8_t LED_MASKS[4];
+extern const uint8_t REDS[4];
+extern const uint8_t GREENS[4];
+extern const uint8_t BLUES[4];
+
 
 // TODO: pass this from the makefile
 #define F_CPU 4000000UL  // 1 MHz
