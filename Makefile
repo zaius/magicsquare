@@ -6,7 +6,7 @@
 FUSES='-U lfuse:w:0xcf:m -U hfuse:w:0xd1:m'
 
 PROJECT=magicsquare
-MASTER_SOURCES=main.c network.c switch.c sleep.c
+MASTER_SOURCES=main.c network.c switch.c
 SLAVE_SOURCES=main.c
 MMCU=atmega8
 

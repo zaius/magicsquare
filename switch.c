@@ -73,7 +73,7 @@ uint8_t debounce(volatile uint8_t *port, uint8_t pin) {
   // Loop until the value present on the pin and the value
   // that was there 10 milliseconds ago are equal
   while (previous != value) {
-    msleep(20);
+    _delay_ms(20);
 
     previous = value;
     value = *port & _BV(pin);
