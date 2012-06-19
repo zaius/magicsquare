@@ -34,11 +34,11 @@
 #define GREEN4 4
 #define RED4 5
 
-extern volatile uint8_t* LEDS[4];
-extern const uint8_t LED_MASKS[4];
-extern const uint8_t REDS[4];
-extern const uint8_t GREENS[4];
-extern const uint8_t BLUES[4];
+extern volatile uint8_t* LEDS[];
+extern const uint8_t LED_MASKS[];
+extern const uint8_t REDS[];
+extern const uint8_t GREENS[];
+extern const uint8_t BLUES[];
 
 
 // TODO: pass this from the makefile
