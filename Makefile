@@ -33,6 +33,6 @@ slave: slave.hex
 
 
 program: slave.hex
-	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-00001004 $(FUSES) -U flash:w:build/slave.hex
+	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* $(FUSES) -U flash:w:build/slave.hex
 clean:
 	rm -f build/*

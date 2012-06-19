@@ -8,15 +8,6 @@ void slave_init(void);
 
 uint8_t group_index = 1;
 
-// TODO: Is there a way to do this with the preprocessor?
-// see http://www.gamedev.net/topic/260159-single-cc-macro-to-create-enum-and-corresponding-char-array/
-// TODO: check if ports can be changed to const
-volatile uint8_t* LEDS[] = { &LED1, &LED2, &LED3, &LED4 };
-const uint8_t LED_MASKS[] = { LED1_MASK, LED2_MASK, LED3_MASK, LED4_MASK };
-const uint8_t REDS[] = { RED1, RED2, RED3, RED4 };
-const uint8_t GREENS[] = { GREEN1, GREEN2, GREEN3, GREEN4 };
-const uint8_t BLUES[] = { BLUE1, BLUE2, BLUE3, BLUE4 };
-
 
 int main(void) {
   // Disable the analog comparitor before enabling interrupts, otherwise a
