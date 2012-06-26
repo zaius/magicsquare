@@ -1,2 +1,2 @@
 void network_init(void);
-void network_send_message(uint8_t *, uint16_t);
+void network_send(uint8_t* new_data, uint8_t data_length);

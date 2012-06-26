@@ -2,6 +2,7 @@
 
 #include "switch.h"
 #include "network.h"
+#include "message.h"
 
 uint8_t switch_state = 0;
 
@@ -87,61 +88,26 @@ uint8_t debounce_port(volatile uint8_t *port) {
 }
 
 
+uint8_t network_count = 0;
 ISR(INT1_vect) {
-  uint8_t value, changed_switches, switch_index, new_switch_state;
-  volatile uint8_t* led;
-  uint8_t mask, red, green, blue;
-
   switches_to_input();
 
   // Read which switch is active. Invert because the active switch will be 0.
-  new_switch_state = ~debounce_port(&PIND) & SWITCHES;
-  changed_switches = switch_state ^ new_switch_state;
+  uint8_t new_switch_state = ~debounce_port(&PIND) & SWITCHES;
+  uint8_t changed_switches = switch_state ^ new_switch_state;
   switch_state = new_switch_state;
 
   // TODO: handle multiple switches changing at the same time. Seems
   // impossible, but with debouncing it could happen.
   // NOTE: this is an index for the array. Actual pin indexes are +4.. maybe
   // there's a nicer way to show that
-  switch_index = find_lowest_bit_set(changed_switches) - 4;
+  uint8_t switch_index = find_lowest_bit_set(changed_switches) - 4;
 
   // yuck. sorry.
-  value = !!(new_switch_state & _BV(switch_index + 4));
+  uint8_t value = !!(new_switch_state & _BV(switch_index + 4));
 
-  // Make the if statement below readable
-  // TODO: Get these back as an extern
-  // TODO: check if ports can be changed to const
-  // TODO: Is there a way to do this with the preprocessor?
-  // see http://www.gamedev.net/topic/260159-single-cc-macro-to-create-enum-and-corresponding-char-array/
-  // TODO: work out why it doesn't work for LEDS
-  // volatile uint8_t* LEDS[] = { &LED1, &LED2, &LED3, &LED4 };
-  const uint8_t LED_MASKS[] = { LED1_MASK, LED2_MASK, LED3_MASK, LED4_MASK };
-  const uint8_t REDS[] = { RED1, RED2, RED3, RED4 };
-  const uint8_t GREENS[] = { GREEN1, GREEN2, GREEN3, GREEN4 };
-  const uint8_t BLUES[] = { BLUE1, BLUE2, BLUE3, BLUE4 };
-  // Hackety hack.
-  led = switch_index > 2 ? &PORTC : &PORTB;
-
-  // led = LEDS[switch_index];
-  mask = LED_MASKS[switch_index];
-  red = _BV(REDS[switch_index]);
-  green = _BV(GREENS[switch_index]);
-  blue = _BV(BLUES[switch_index]);
-
-  if (value) {
-    // Cycle through red, green, blue, off
-    // TODO: set up a macro for this operation.
-    if (red & *led) {
-      *led = (*led & ~mask) | green;
-    } else if (green & *led) {
-      *led = (*led & ~mask) | blue;
-    } else if (blue & *led) {
-      *led &= ~mask;
-    } else {
-      *led = (*led & ~mask) | red;
-    }
-  }
-
+  MESSAGE msg = {GROUP_INDEX, 0, switch_index, value};
+  message_encode(&msg);
 
   switches_to_output();
 
