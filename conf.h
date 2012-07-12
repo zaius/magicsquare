@@ -30,7 +30,7 @@
 #define RED3 2
 
 #define LED4 PORTC
-#define LED4_MASK 0x38
+#define LED4_MASK 0xf8
 #define BLUE4 3
 #define GREEN4 4
 #define RED4 5

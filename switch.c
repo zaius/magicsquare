@@ -34,27 +34,30 @@ void switch_init() {
   // 1      1      The rising edge of INT1 generates an interrupt request
 
   // Trigger int1 on any change
-  MCUCR |= _BV(ISC10);
+  // MCUCR |= _BV(ISC10);
 
   // General Interrupt Control Register – GICR
   // Bit 7 – INT1: External Interrupt Request 1 Enable
-  GICR |= _BV(INT1);
+  // GICR |= _BV(INT1);
 
-  switches_to_output();
+  switches_to_input();
 }
 
 void switches_to_input() {
   // Switches to input
-  DDRD &= ~SWITCHES;
+  // DDRD &= ~SWITCHES;
+  DDRD = ~SWITCHES;
 
   // Interrupt to output
-  DDRD |= _BV(PD3);
+  // DDRD |= _BV(PD3);
+  // DDRD = _BV(PD3);
 
   // Pull switch pins high
-  PORTD |= SWITCHES;
+  //PORTD |= SWITCHES;
+  PORTD = ~_BV(PD3);
 
   // Set interrupt pin low
-  PORTD &= ~_BV(PD3);
+  // PORTD &= ~_BV(PD3);
 }
 void switches_to_output() {
   DDRD |= SWITCHES;
@@ -66,9 +69,18 @@ void switches_to_output() {
 
 // Be sure to call with a pointer to an input port such as &PINB or similar
 // TODO: switch to timer debouncing, so we're not blocking on the network.
+// TODO: take a mask as an input, not as a comparison after.
 uint8_t debounce_port(volatile uint8_t *port) {
   uint8_t i, equal;
   uint8_t history[4] = {1, 2, 3, 4};
+
+  uint8_t last = 0xaa, current = 0xbb;
+  while (last != current) {
+    last = current;
+    current = *port;
+    _delay_ms(20);
+  }
+  return current;
 
   while (TRUE) {
     // Shift the array one right
@@ -88,28 +100,39 @@ uint8_t debounce_port(volatile uint8_t *port) {
 }
 
 
+uint8_t current_colors[4] = { 0, 0, 0, 0 };
 uint8_t network_count = 0;
-ISR(INT1_vect) {
-  switches_to_input();
+// ISR(INT1_vect) {
+void button_press() {
+  // switches_to_input();
 
   // Read which switch is active. Invert because the active switch will be 0.
   uint8_t new_switch_state = ~debounce_port(&PIND) & SWITCHES;
   uint8_t changed_switches = switch_state ^ new_switch_state;
   switch_state = new_switch_state;
 
-  // TODO: handle multiple switches changing at the same time. Seems
-  // impossible, but with debouncing it could happen.
-  // NOTE: this is an index for the array. Actual pin indexes are +4.. maybe
-  // there's a nicer way to show that
-  uint8_t switch_index = find_lowest_bit_set(changed_switches) - 4;
+  // Don't change when it's just noise
+  if (changed_switches) {
+    // TODO: handle multiple switches changing at the same time. Seems
+    // impossible, but with debouncing it could happen.
+    // NOTE: this is an index for the array. Actual pin indexes are +4.. maybe
+    // there's a nicer way to show that
+    uint8_t switch_index = find_lowest_bit_set(changed_switches) - 4;
 
-  // yuck. sorry.
-  uint8_t value = !!(new_switch_state & _BV(switch_index + 4));
+    // yuck. sorry.
+    uint8_t value = !!(new_switch_state & _BV(switch_index + 4));
 
-  MESSAGE msg = {GROUP_INDEX, 0, switch_index, value};
-  message_encode(&msg);
+    if (value) {
+      current_colors[switch_index] = (current_colors[switch_index] % 3)+1;
+      MESSAGE msg = {0, GROUP_INDEX, switch_index, current_colors[switch_index]};
+      // Fake receiving this message instead of actually sending
+      message_receive(&msg);
+    }
+    // Don't send for now
+    // message_encode(&msg);
+  }
 
-  switches_to_output();
+  // switches_to_output();
 
   // Flicking the switches seems to re-trigger the interrupt, and for some
   // reason (maybe line capacitance?) it retriggers after this ISR has finished
@@ -117,7 +140,7 @@ ISR(INT1_vect) {
   _delay_ms(1);
 
   // Clear any button interrupts that might have happened since
-  GIFR = _BV(INTF1);
+  // GIFR = _BV(INTF1);
 }
 
 // This is effectively the inverse of _BV

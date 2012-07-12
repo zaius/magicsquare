@@ -34,7 +34,7 @@ hex: binary
 
 fuses:
 	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* $(FUSES)
-program: hex
+program:
 	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U flash:w:build/build.hex
 
 
