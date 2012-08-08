@@ -3325,9 +3325,9 @@ We've spent an enormous amount of time creating and checking these footprints an
 <instance part="Q1" gate="G$1" x="17.78" y="53.34" rot="R270"/>
 <instance part="JP5" gate="G$1" x="48.26" y="-27.94"/>
 <instance part="R1" gate="G$1" x="-5.08" y="88.9" rot="R270"/>
-<instance part="GND1" gate="1" x="58.42" y="-27.94" rot="R90"/>
+<instance part="GND1" gate="1" x="58.42" y="-25.4" rot="R90"/>
 <instance part="GND2" gate="1" x="20.32" y="43.18" rot="R270"/>
-<instance part="P+4" gate="VCC" x="58.42" y="-25.4" rot="R270"/>
+<instance part="P+4" gate="VCC" x="58.42" y="-27.94" rot="R270"/>
 <instance part="P+6" gate="VCC" x="20.32" y="38.1" rot="R90"/>
 <instance part="P+8" gate="VCC" x="-5.08" y="96.52"/>
 <instance part="GND3" gate="1" x="2.54" y="38.1"/>
@@ -3500,7 +3500,7 @@ We've spent an enormous amount of time creating and checking these footprints an
 <pinref part="P+11" gate="VCC" pin="VCC"/>
 </segment>
 <segment>
-<pinref part="JP5" gate="G$1" pin="2"/>
+<pinref part="JP5" gate="G$1" pin="1"/>
 <pinref part="P+4" gate="VCC" pin="VCC"/>
 </segment>
 </net>
@@ -3594,7 +3594,7 @@ We've spent an enormous amount of time creating and checking these footprints an
 <pinref part="GND22" gate="1" pin="GND"/>
 </segment>
 <segment>
-<pinref part="JP5" gate="G$1" pin="1"/>
+<pinref part="JP5" gate="G$1" pin="2"/>
 <pinref part="GND1" gate="1" pin="GND"/>
 </segment>
 </net>
