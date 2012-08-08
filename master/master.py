@@ -38,15 +38,21 @@ MODE_INIT          = 0x00
 MODE_CALIB         = 0x01
 MODE_NORMAL        = 0x02
 
+HOST = ''                 # Symbolic name meaning all available interfaces
+PORT = 50008              # Arbitrary non-privileged port
+
+""" Group Indexes
+0 1 2
+3 4 5
+6 7 8
+"""
+
 """ Button Indexes
 0  1
 2  3
 """
 
 
-
-HOST = ''                 # Symbolic name meaning all available interfaces
-PORT = 50008              # Arbitrary non-privileged port
 
 """
 master -> RST_ADDR -> broadcast
@@ -187,6 +193,7 @@ def handle_BTN_PRESS(msg):
             for c in sorted(BUTTON_STATES[r].keys()):
                 if not BUTTON_STATES[r][c]:
                     btn.position = (r, c)
+                    btn.button_config = [0,1,2,3][msg['btn_idx']:] + [0,1,2,3][:msg['btn_idx']]
                     btn.mode = MODE_NORMAL
                     BUTTON_STATES[r][c] = btn
                     s.send(encode_message(SET_COLOR, {'grp_idx':btn.grp_idx, 'btn_idx':msg['btn_idx'], 'rv':0xFF, 'gv':0x00, 'bv':0x00}))
@@ -238,13 +245,34 @@ def calibrate_buttons():
     
     MODE = MODE_NORMAL
 
+def pixel_to_button(x, y):
+    grp_idx = (y/2)*3 + x/2
+    btn = GROUP_INDEXES[grp_idx]
+    btn_idx = btn.button_config[(y%2)*2 + x%2]
+    # btn_idx = [0,1,2,3][(y%2)*2 + x%2]
+    return (grp_idx, btn_idx)
+
 def print_button_config():
     for r in sorted(BUTTON_STATES.keys()):
         row_str = ""
         for c in sorted(BUTTON_STATES[r].keys()):
             btn = BUTTON_STATES[r][c]
-            row_str += str(btn.grp_idx)+" "+str(btn.position)+"\t"
+            # row_str += str(btn.grp_idx)+" "+str(btn.position)+"\t"
+            row_str += str(btn.grp_idx)+" "+str(btn.button_config)+"\t"
+            # row_str += str(btn.grp_idx)+"\t"
         print row_str
+
+def print_pixel_config():
+    for y in range(6):
+        row_str = ""
+        for x in range(6):
+            grp_idx, btn_idx = pixel_to_button(x, y)
+            btn = GROUP_INDEXES[grp_idx]
+            # row_str += str(btn.grp_idx)+" "+str(btn.position)+"\t"
+            row_str += str(btn.grp_idx)+" "+str(btn.button_config[btn_idx])+"\t"
+            # row_str += str(btn.grp_idx)+"\t"
+        print row_str
+
 
 def listen():
     while True:
@@ -262,7 +290,8 @@ initialize_buttons()
 
 calibrate_buttons()
 
-print_button_config()
+# print_button_config()
+print_pixel_config()
 
 listen()
 

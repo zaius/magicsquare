@@ -47,7 +47,7 @@ class Button(object):
     position = None
     mode = MODE_INIT
     colors = [(0x00, 0x00, 0x00), (0x00, 0x00, 0x00), (0x00, 0x00, 0x00), (0x00, 0x00, 0x00)]
-    button_config = []
+    button_config = [0, 1, 2, 3]
     buf = bytearray()
     prev_byte = None
     rnd = None
@@ -152,12 +152,31 @@ def encode_message(msg_type, msg):
     
     return encoded
 
+def pixel_to_button(x, y):
+    grp_idx = (y/2)*3 + x/2
+    btn = GROUP_INDEXES[grp_idx]
+    btn_idx = btn.button_config[(y%2)*2 + x%2]
+    # btn_idx = [0,1,2,3][(y%2)*2 + x%2]
+    return (grp_idx, btn_idx)
+
 def print_button_config():
     for r in sorted(BUTTON_STATES.keys()):
         row_str = ""
         for c in sorted(BUTTON_STATES[r].keys()):
             btn = BUTTON_STATES[r][c]
-            row_str += str(btn.grp_idx)+"\t"
+            # row_str += str(btn.grp_idx)+"\t"
+            row_str += str(btn.grp_idx)+" "+str(btn.button_config)+"\t"
+        print row_str
+
+def print_pixel_config():
+    for y in range(6):
+        row_str = ""
+        for x in range(6):
+            grp_idx, btn_idx = pixel_to_button(x, y)
+            btn = GROUP_INDEXES[grp_idx]
+            # row_str += str(btn.grp_idx)+" "+str(btn.position)+"\t"
+            row_str += str(btn.grp_idx)+" "+str(btn.button_config[btn_idx])+"\t"
+            # row_str += str(btn.grp_idx)+"\t"
         print row_str
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -191,6 +210,8 @@ for r in sorted(BUTTON_STATES.keys()):
     for c in sorted(BUTTON_STATES[r].keys()):
         btn = BUTTON_STATES[r][c]
         btn.position = (r, c)
+        rnd_orientation = random.choice(btn.button_config)
+        btn.button_config = btn.button_config[rnd_orientation:] + btn.button_config[:rnd_orientation]
         RAND_BUTTONS.append(btn)
 
 
@@ -214,10 +235,11 @@ for r in sorted(BUTTON_STATES.keys()):
     for c in sorted(BUTTON_STATES[r].keys()):
         time.sleep(0.2)
         btn = BUTTON_STATES[r][c]
-        conn.send(encode_message(BTN_PRESS, {'grp_idx':btn.grp_idx, 'btn_idx':0}))
+        conn.send(encode_message(BTN_PRESS, {'grp_idx':btn.grp_idx, 'btn_idx':btn.button_config[0]}))
         
 
-print_button_config()
+# print_button_config()
+print_pixel_config()
 
 while not all(map(lambda b: b.mode == MODE_NORMAL, RAND_BUTTONS)):
     byte = conn.recv(1)
