@@ -8,11 +8,7 @@ void init() {
   // Set LEDs to output
   DDRB = LED1_MASK | LED2_MASK;
   DDRC = LED3_MASK | LED4_MASK;
-
-  // All on port D to input with pull ups.
-  // TODO: check whether this is actually nescessary.
-  DDRD = 0x00;
-  PORTD = 0xff;
+  DDRC = 0xff;
 }
 
 void message_receive(MESSAGE* msg) {
@@ -24,7 +20,7 @@ void message_receive(MESSAGE* msg) {
   const uint8_t GREENS[] = { GREEN1, GREEN2, GREEN3, GREEN4 };
   const uint8_t BLUES[] = { BLUE1, BLUE2, BLUE3, BLUE4 };
   // Hackety hack.
-  volatile uint8_t* led = msg->square_index > 2 ? &PORTC : &PORTB;
+  volatile uint8_t* led = msg->square_index > 1 ? &PORTC : &PORTB;
 
   uint8_t color;
   switch (msg->color) {
