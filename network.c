@@ -1,4 +1,5 @@
 #include "conf.h"
+
 #include "network.h"
 
 #define TXEN_PORT PORTD
@@ -28,9 +29,12 @@ void network_init() {
 
   // Pin 0: UART RXD
   // Pin 1: UART TXD
-  // Pin 2: RS485 Transmit enable
-  DDRD |= 0x06;
+  // Pin 2: NOT RS485 Receive enable
+  // Pin 3: RS485 Transmit enable
   DDRD &= ~_BV(0);
+  DDRD |= _BV(1) & _BV(2) & _BV(3);
+  // Enable receive, disable transmit
+  PORTD &= ~_BV(2) & ~_BV(3);
 }
 
 

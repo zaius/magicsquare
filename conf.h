@@ -50,6 +50,5 @@
 // switching on, or load / store in eeprom
 #define GROUP_INDEX 1
 
-// Defined by either master or slave
 void init();
 void message_receive();

@@ -12,17 +12,7 @@ CC=avr-gcc
 OBJCOPY=avr-objcopy
 
 CFLAGS=-mmcu=$(MMCU) -Wall -O2
-
-master: SOURCES=main.c network.c slip.c message.c master.c
-master: CFLAGS += -DMASTER
-master: hex
-	echo 'master'
-
-slave: SOURCES=main.c network.c switch.c slip.c message.c slave.c
-slave: CFLAGS += -DSLAVE
-slave: hex
-	echo 'slave'
-
+SOURCES=main.c network.c switch.c slip.c message.c led.c
 
 binary:
 	$(CC) $(CFLAGS) -I./ -o build/build.out $(SOURCES)
