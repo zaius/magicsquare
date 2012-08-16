@@ -6,8 +6,11 @@ struct message {
   uint8_t source;
   uint8_t destination;
   uint8_t square_index;
-  uint8_t color;
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
 };
 
-void message_encode(MESSAGE* msg);
+void message_send(MESSAGE* msg);
+void message_receive(MESSAGE* msg);
 void message_decode(uint8_t* data, uint8_t data_length);

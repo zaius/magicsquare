@@ -6,3 +6,6 @@ struct color {
 };
 
 void led_init();
+void led_timer();
+
+extern COLOR colors[4];

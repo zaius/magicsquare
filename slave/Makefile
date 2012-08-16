@@ -11,7 +11,7 @@ MMCU=atmega8
 CC=avr-gcc
 OBJCOPY=avr-objcopy
 
-CFLAGS=-mmcu=$(MMCU) -Wall -O2
+CFLAGS=-mmcu=$(MMCU) -Wall -O2 -std=c99
 SOURCES=main.c network.c switch.c slip.c message.c led.c
 
 binary:
