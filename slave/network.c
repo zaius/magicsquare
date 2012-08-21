@@ -1,5 +1,6 @@
 #include "conf.h"
 
+#include <avr/eeprom.h>
 #include "network.h"
 
 #define TXEN_PORT PORTD
@@ -8,8 +9,15 @@
 // From datasheet: BAUD = FREQUENCY / 16*(UBRR+1)
 #define BAUD_PRESCALE (((F_CPU / (BAUD * 16UL))) - 1)
 
-// Initialise the on-chip UART
+uint16_t hardware_address = 0;
+uint8_t group_index = 0;
+
 void network_init() {
+  // Load the hardware address from EEPROM
+  hardware_address = eeprom_read_word((const uint16_t *) 0);
+  group_index = eeprom_read_byte((const uint8_t *) 2);
+
+  // Initialise the on-chip UART
   // UBRR - UART Baud Rate Register
   // Initialise the baud rate controller
   UBRRH = BAUD_PRESCALE >> 8;

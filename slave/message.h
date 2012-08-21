@@ -1,15 +1,19 @@
 // TODO: separate addressing and content of messages
-// TODO: have a message type identifier
-// TODO: separate color messages and button press messages
 typedef struct message MESSAGE;
 struct message {
-  uint8_t source;
-  uint8_t destination;
-  uint8_t square_index;
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
+  uint16_t source;
+  uint16_t destination;
+  uint16_t checksum;
+  uint8_t message_type;
+  uint8_t data_length;
+  uint8_t* data;
 };
+
+void message_reset_address(uint8_t* data, uint8_t data_length);
+void message_assign_address(uint8_t* data, uint8_t data_length);
+void message_calibration_mode(uint8_t* data, uint8_t data_length);
+void message_set_color(uint8_t* data, uint8_t data_length);
+void message_ignore(uint8_t* data, uint8_t data_length);
 
 void message_send(MESSAGE* msg);
 void message_receive(MESSAGE* msg);

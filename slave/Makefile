@@ -26,6 +26,10 @@ fuses:
 	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* $(FUSES)
 program:
 	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U flash:w:build/build.hex
+eeprom:
+	# Generate a random hardware address
+	ADDRESS=`hexdump -n 2 -v -e '"%04x"' /dev/random`
+	avrdide -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U eeprom:w:0x$(ADDRESS):m
 
 
 clean:

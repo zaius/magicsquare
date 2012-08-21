@@ -1,10 +1,22 @@
 #include "conf.h"
+#include <avr/eeprom.h>
 
 #include "message.h"
 #include "led.h"
 #include "network.h"
 #include "slip.h"
 
+// An array of function pointers for how to handle each message type. Their
+// index in the same as their message type.
+typedef void (*MESSAGE_HANDLER)(uint8_t*, uint8_t);
+MESSAGE_HANDLER message_handlers[6] = {
+  &message_reset_address,
+  &message_ignore,
+  &message_assign_address,
+  &message_ignore,
+  &message_calibration_mode,
+  &message_set_color
+};
 
 void message_send(MESSAGE* msg) {
   // TODO: make slip use malloc and return something of the proper size
@@ -15,15 +27,40 @@ void message_send(MESSAGE* msg) {
 }
 
 void message_decode(uint8_t* data, uint8_t data_length) {
-  if (data_length != 4) { return; }
   MESSAGE* msg = (MESSAGE*)data;
-  if (msg->destination != GROUP_INDEX) { return; }
-  message_receive(msg);
+  // TODO: fix this to use hardware addresses
+  if (msg->destination != group_index) { return; }
+
+  // TODO: check checksum
+
+  (*message_handlers[msg->message_type])(msg->data, msg->data_length);
 }
 
-void message_receive(MESSAGE* msg) {
-  // TODO: Are structs treated as primitive types? If I assign a struct, is it
-  // copied?
-  COLOR color = { msg->red, msg->green, msg->blue };
-  colors[msg->square_index] = color;
+void message_set_color(uint8_t* data, uint8_t data_length) {
+  if (data_length != 4) { return; }
+  colors[data[0]] = (COLOR) { data[0], data[1], data[2] };
+}
+void message_reset_address(uint8_t* data, uint8_t data_length) {
+  if (data_length != 4) { return; }
+  group_index = 255;
+}
+void message_assign_address(uint8_t* data, uint8_t data_length) {
+  if (data_length != 1) { return; }
+  group_index = data[0];
+  // TODO: better way to keep track of eeprom addresses. Even defines will work.
+  eeprom_write_byte((uint8_t *)2, data[0]);
+}
+void message_calibration_mode(uint8_t* data, uint8_t data_length) {
+  if (data_length != 0) { return; }
+
+  // Flash LEDs white then off
+  for (uint8_t i = 0; i < 4; i++) {
+    colors[i] = (COLOR) { 0xff, 0xff, 0xff };
+  }
+  _delay_ms(1000);
+  for (uint8_t i = 0; i < 4; i++) {
+    colors[i] = (COLOR) { 0, 0, 0 };
+  }
+}
+void message_ignore(uint8_t* data, uint8_t data_length) {
 }
