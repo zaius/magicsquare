@@ -1,66 +1,47 @@
 #include "conf.h"
-#include <avr/eeprom.h>
-
 #include "message.h"
 #include "led.h"
 #include "network.h"
 #include "slip.h"
 
-// An array of function pointers for how to handle each message type. Their
-// index in the same as their message type.
-typedef void (*MESSAGE_HANDLER)(uint8_t*, uint8_t);
-MESSAGE_HANDLER message_handlers[6] = {
-  &message_reset_address,
-  &message_ignore,
-  &message_assign_address,
-  &message_ignore,
-  &message_calibration_mode,
-  &message_set_color
-};
+#include <string.h> // memcpy
+#include <stdlib.h> // free
 
-void message_send(MESSAGE* msg) {
-  // TODO: make slip use malloc and return something of the proper size
-  uint8_t packet[MAX_PACKET_SIZE];
-  uint8_t length = slip_encode(packet, MAX_PACKET_SIZE, (uint8_t*)msg, 4);
-  // Should the slip_encode happen inside network_send?
-  network_send(packet, length);
+
+void message_send(MESSAGE_SWITCH_CHANGE* switch_change) {
+  uint8_t packet_length = sizeof(MESSAGE_HEADER) + sizeof(MESSAGE_SWITCH_CHANGE);
+  uint8_t packet[packet_length];
+
+  // Add the header
+  MESSAGE_HEADER header = {hardware_address, MASTER_ADDRESS, MESSAGE_TYPE_SWITCH_CHANGE };
+  memcpy(packet, &header, sizeof(MESSAGE_HEADER));
+
+  // Add the data
+  memcpy(packet + sizeof(MESSAGE_HEADER), switch_change, sizeof(MESSAGE_SWITCH_CHANGE));
+
+  // Slip encode
+  uint8_t* encoded_packet;
+  uint8_t encoded_packet_length = slip_encode(&encoded_packet, packet, packet_length);
+
+  network_send(encoded_packet, encoded_packet_length);
+
+  // This doesn't feel right. The free should be with the malloc.
+  // Could fix by having a slip_encoded_length function which returns the size
+  // that the destination needs to have, then go back to the old slip method.
+  free(encoded_packet);
 }
 
-void message_decode(uint8_t* data, uint8_t data_length) {
-  MESSAGE* msg = (MESSAGE*)data;
-  // TODO: fix this to use hardware addresses
-  if (msg->destination != group_index) { return; }
+void message_receive(uint8_t* data, uint8_t data_length) {
+  if (data_length < sizeof(MESSAGE_HEADER)) { return; }
 
-  // TODO: check checksum
+  MESSAGE_HEADER* header = (MESSAGE_HEADER*)data;
+  if (header->destination != hardware_address) { return; }
+  if (header->message_type != MESSAGE_TYPE_COLOR_CHANGE) { return; }
 
-  (*message_handlers[msg->message_type])(msg->data, msg->data_length);
-}
+  uint8_t offset = sizeof(MESSAGE_HEADER);
+  if (data_length < offset + sizeof(MESSAGE_COLOR_CHANGE)) { return; }
+  MESSAGE_COLOR_CHANGE* change = (MESSAGE_COLOR_CHANGE*)(data + offset);
 
-void message_set_color(uint8_t* data, uint8_t data_length) {
-  if (data_length != 4) { return; }
-  colors[data[0]] = (COLOR) { data[0], data[1], data[2] };
-}
-void message_reset_address(uint8_t* data, uint8_t data_length) {
-  if (data_length != 4) { return; }
-  group_index = 255;
-}
-void message_assign_address(uint8_t* data, uint8_t data_length) {
-  if (data_length != 1) { return; }
-  group_index = data[0];
-  // TODO: better way to keep track of eeprom addresses. Even defines will work.
-  eeprom_write_byte((uint8_t *)2, data[0]);
-}
-void message_calibration_mode(uint8_t* data, uint8_t data_length) {
-  if (data_length != 0) { return; }
-
-  // Flash LEDs white then off
-  for (uint8_t i = 0; i < 4; i++) {
-    colors[i] = (COLOR) { 0xff, 0xff, 0xff };
-  }
-  _delay_ms(1000);
-  for (uint8_t i = 0; i < 4; i++) {
-    colors[i] = (COLOR) { 0, 0, 0 };
-  }
-}
-void message_ignore(uint8_t* data, uint8_t data_length) {
+  // Brain not working. There should be a way to assign to the struct directly.
+  set_color(change->switch_index, change->red, change->green, change->blue);
 }

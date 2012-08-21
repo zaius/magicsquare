@@ -9,4 +9,4 @@
 // Character used to replace a SLIP_ESC character in the data
 #define SLIP_ESC_ESC        0xDD
 
-uint8_t slip_encode(uint8_t * dest, uint8_t dest_size, uint8_t * source, uint8_t source_size);
+uint8_t slip_encode(uint8_t ** dest_pointer, uint8_t * source, uint8_t source_size);

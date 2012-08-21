@@ -13,6 +13,10 @@ void led_init() {
   PORTC = 0;
 }
 
+void set_color(uint8_t index, uint8_t red, uint8_t green, uint8_t blue) {
+  colors[index] = (COLOR){ red, green, blue };
+}
+
 // TODO: work out why it doesn't work for LEDS
 // volatile uint8_t* LEDS[] = { &LED1, &LED2, &LED3, &LED4 };
 const uint8_t LED_MASKS[] = { LED1_MASK, LED2_MASK, LED3_MASK, LED4_MASK };

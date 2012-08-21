@@ -1,34 +1,44 @@
 #include "conf.h"
 #include "slip.h"
 
+#include "message.h"
+#include <stdlib.h> // malloc
+
 // Encode an array of data using SLIP encoding
-uint8_t slip_encode(uint8_t * dest, uint8_t dest_size, uint8_t * source, uint8_t source_size) {
-  uint8_t c, source_index, dest_index = 0;
+uint8_t slip_encode(uint8_t ** dest_pointer, uint8_t * source, uint8_t source_size) {
+  // Loop through once to count the number of bytes that are going to be added
+  // Start with 2 extra bytes, for the first and last SLIP_END
+  uint8_t dest_size = source_size + 2;
+  for (uint8_t i = 0; i < source_size; i++) {
+    if (source[i] == SLIP_END || source[i] == SLIP_ESC) { dest_size++; }
+  }
+  uint8_t* dest = malloc(dest_size * sizeof(uint8_t));
+  dest_pointer = &dest;
 
-  // Zero sized buffers can break things
-  if (dest_size < 1 || dest == NULL || source == NULL) return 0;
+  uint8_t dest_index = 0;
+  // First byte is always an slip end, to clear line noise.
+  dest[dest_index++] = SLIP_END;
 
-  dest[dest_index] = SLIP_END;
-
-  for (source_index = 0; source_index < source_size; source_index++) {
-    c = source[source_index];
+  for (uint8_t i = 0; i < source_size; i++) {
+    uint8_t c = source[i];
 
     if (c == SLIP_END) {
-      if (++dest_index < dest_size) dest[dest_index] = SLIP_ESC;
-      if (++dest_index < dest_size) dest[dest_index] = SLIP_ESC_END;
+      dest[dest_index++] = SLIP_ESC;
+      dest[dest_index++] = SLIP_ESC_END;
     }
     else if (c == SLIP_ESC) {
-      if (++dest_index < dest_size) dest[dest_index] = SLIP_ESC;
-      if (++dest_index < dest_size) dest[dest_index] = SLIP_ESC_ESC;
+      dest[dest_index++] = SLIP_ESC;
+      dest[dest_index++] = SLIP_ESC_ESC;
     }
     else {
-      if (++dest_index < dest_size) dest[dest_index] = c;
+      dest[dest_index++] = c;
     }
   }
 
-  if (++dest_index < dest_size) dest[dest_index] = SLIP_END;
+  dest[dest_index++] = SLIP_END;
 
-  return ++dest_index;
+  // Should be the same as dest_size
+  return dest_index;
 }
 
 
@@ -43,8 +53,8 @@ ISR(USART_RXC_vect) {
     // packet anyway to flush out the noise
     if (packet_length == 0) return;
 
-    // some_stored_callback(data, packet_length);
-    // network_send("Received packet", 20);
+    message_receive(packet, packet_length);
+    previous_byte = packet_length = 0;
     return;
   } else if (previous_byte == SLIP_ESC) {
     // Previous read byte was an escape byte, so this byte will be

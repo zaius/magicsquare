@@ -37,8 +37,8 @@ void switch_timer() {
   for (uint8_t pin = 4, switch_index = 3; pin < 8; pin++, switch_index--) {
     if (changed_switches & _BV(pin)) {
       uint8_t switch_bool = !!(switches_history[0] & _BV(pin));
-      MESSAGE msg = {0, GROUP_INDEX, switch_index, switch_bool};
-      message_send(&msg);
+      MESSAGE_SWITCH_CHANGE switch_change = { switch_index, switch_bool };
+      message_send(&switch_change);
     }
   }
   switches_state = switches_history[0];
