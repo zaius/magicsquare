@@ -37,19 +37,10 @@
 
 #define MAX_PACKET_SIZE 128
 
-#define F_CPU 8000000UL
+#define F_CPU 7372800UL
 #define BAUD 9600
 
 // Has to come after definition of F_CPU
 #include <util/delay.h>
 
 #define _set_with_mask(dest, mask, in) dest = (dest & ~mask) | in
-
-// The index of this button group. Would it be better to track an x/y coordinate?
-// TODO: work out a better way to track this? Maybe an initial broadcast when
-// switching on, or load / store in eeprom
-#define GROUP_INDEX 1
-
-// Defined by either master or slave
-void init();
-void message_receive();

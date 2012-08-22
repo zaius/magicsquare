@@ -11,18 +11,8 @@ MMCU=atmega8
 CC=avr-gcc
 OBJCOPY=avr-objcopy
 
-CFLAGS=-mmcu=$(MMCU) -Wall -O2
-
-master: SOURCES=main.c network.c slip.c message.c master.c
-master: CFLAGS += -DMASTER
-master: hex
-	echo 'master'
-
-slave: SOURCES=main.c network.c switch.c slip.c message.c slave.c
-slave: CFLAGS += -DSLAVE
-slave: hex
-	echo 'slave'
-
+CFLAGS=-mmcu=$(MMCU) -Wall -O2 -std=c99
+SOURCES=main.c network.c switch.c slip.c message.c led.c
 
 binary:
 	$(CC) $(CFLAGS) -I./ -o build/build.out $(SOURCES)
@@ -36,6 +26,10 @@ fuses:
 	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* $(FUSES)
 program:
 	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U flash:w:build/build.hex
+eeprom:
+	# Generate a random hardware address
+	ADDRESS=`hexdump -n 2 -v -e '"%04x"' /dev/random`
+	avrdide -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U eeprom:w:0x$(ADDRESS):m
 
 
 clean:
