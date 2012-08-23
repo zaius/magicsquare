@@ -14,27 +14,24 @@ SLIP_ESC_END       = chr(0xDC)
 # Character used to replace a SLIP_ESC character in the data
 SLIP_ESC_ESC       = chr(0xDD)
 
+MASTER_ADDRESS             = 0xAAAA
+MESSAGE_HEADER_LEN         = 2 + 2 + 1 #bytes
+
 # Message Types
-RST_ADDR           = chr(0x00)
-REQ_ADDR           = chr(0x01)
-ASN_ADDR           = chr(0x02)
-BTN_PRESS          = chr(0x03)
-CALIB_MODE         = chr(0x04)
-SET_COLOR          = chr(0x05)
-MSG_TYPES          = [RST_ADDR, REQ_ADDR, ASN_ADDR, BTN_PRESS, CALIB_MODE, SET_COLOR]
+MESSAGE_HEADER             = chr(0x00)
+MESSAGE_COLOR_CHANGE       = chr(0x01)
+MESSAGE_SWITCH_CHANGE      = chr(0x02)
+
+MSG_TYPES                  = [MESSAGE_HEADER, MESSAGE_COLOR_CHANGE, MESSAGE_SWITCH_CHANGE]
 
 # Message Templates
 TEMPLATES = {
-    RST_ADDR      : [],
-    REQ_ADDR      : ['rnd'],
-    ASN_ADDR      : ['rnd', 'grp_idx'],
-    BTN_PRESS     : ['grp_idx', 'btn_idx'],
-    CALIB_MODE    : ['grp_idx'],
-    SET_COLOR     : ['grp_idx', 'btn_idx', 'rv', 'gv', 'bv']
+    MESSAGE_HEADER         : ['source','destination','message_type']
+    MESSAGE_COLOR_CHANGE   : ['switch_index', 'red', 'green', 'blue'],
+    MESSAGE_SWITCH_CHANGE  : ['switch_index', 'switch_state'],
 }
 
 # Modes
-MODE_INIT          = 0x00
 MODE_CALIB         = 0x01
 MODE_NORMAL        = 0x02
 
@@ -55,14 +52,12 @@ PORT = 50008              # Arbitrary non-privileged port
 
 
 """
-master -> RST_ADDR -> broadcast
-master <- REQ_ADDR <- each button group         wait a random amount of time before requesting an address
-master -> ASN_ADDR -> each button group         for each request, send back a sequential group address
-master -> CALIB_MODE -> each button group       for each button, send a message to put it in calibration mode
-master <- BTN_PRESS <- each button group        in raster scan fashion, a human will press the top left button of each group
-master -> SET_COLOR -> each button group        after pressing the button in calibration mode, the master sends command to change the color
+  == Initializing ==
+(Master in MODE_CALIB)
+Slaves set some default color on power on
+Master waits for button press
 
-  now in normal operation
+  == Normal Operation ==
 master <- BTN_PRESS <- humans                   humans stepping on buttons trigger BTN_PRESS messages
 master -> SET_COLOR -> response to BTN_PRESS    in response to button press, SET_COLOR message(s) are sent
 """
@@ -70,16 +65,27 @@ master -> SET_COLOR -> response to BTN_PRESS    in response to button press, SET
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOST, PORT))
-s.settimeout(0.00001)
+#s.settimeout(0.00001) #really shouldn't be setting a timeout at all, but it allows a sig interupt to be fired
 
 class Button(object):
-    grp_idx = None
+    rnd = None
     position = None
-    mode = MODE_INIT
     colors = [(0x00, 0x00, 0x00), (0x00, 0x00, 0x00), (0x00, 0x00, 0x00), (0x00, 0x00, 0x00)]
     button_config = []
-    buf = bytearray()
-    prev_byte = None
+    # buf = bytearray()
+    # prev_byte = None
+    
+    def set_color(self, switch_index, red, green, blue):
+        global conn
+        header = {'source':MASTER_ADDRESS, 'destination':self.rnd, 'message_type':MESSAGE_COLOR_CHANGE}
+        msg = {'switch_index':switch_index, 'red':red, 'green':green, 'blue':blue}
+        self.colors[switch_index] = (red, green, blue)
+        bytes = self.slip_encode(self.encode_msg(header, msg))
+        
+        print "SET_COLOR  "+str(self.rnd)+"  "+str(switch_index)+"  "+str(self.colors[switch_index])
+        
+        #send bytes over tcp connection
+        conn.send(bytes)
 
 
 BUTTON_STATES = {
@@ -99,31 +105,11 @@ BUTTON_STATES = {
         '2': None,
     }
 }
-GROUP_INDEXES = list()
-MODE = MODE_INIT
+GROUP_ADDRESSES = dict()
+MODE = MODE_CALIB
 
 
-def encode_message(msg_type, msg):
-    encoded = bytearray([SLIP_END, msg_type])
-    for field in TEMPLATES[msg_type]:
-        byte = msg[field]
-        if type(byte) == int:
-            byte = chr(byte)
-        if byte == SLIP_END:
-            encoded.append(SLIP_ESC)
-            encoded.append(SLIP_ESC_END)
-        elif byte == SLIP_ESC:
-            encoded.append(SLIP_ESC)
-            encoded.append(SLIP_ESC_ESC)
-        else:
-            try:
-                encoded.append(byte)
-            except:
-                binascii.hexlify(byte)
-    
-    encoded.append(SLIP_END)
-    
-    return encoded
+
 
 buf = bytearray()
 prev_byte = None
@@ -153,132 +139,149 @@ def handle_byte(byte):
         
     prev_byte = byte
 
-def decode_data(data):
+def process_data(data):
+    #if chr(data[0]) not in MSG_TYPES or len(data[1:]) != len(TEMPLATES[chr(data[0])]):
+    if len(data) < len(MESSAGE_HEADER_LEN):
+        print "Throwing out header: "+binascii.hexlify(data)
+        return
+    header = self.decode_header(data)
+    if header['destination'] != MASTER_ADDRESS:
+        print "Throwing out message because it's not meant for me "+binascii.hexlify(data)
+        return
+    if header['message_type'] not in MSG_TYPES:
+        print "Throwing out message because message type not recognized "+binascii.hexlify(data)
+        return
+    tmpl = TEMPLATES[header['message_type']]
+    if len(data) < MESSAGE_HEADER_LEN + len(tmpl):
+        print "Throwing out message: "+binascii.hexlify(data)
+        return
+    msg = self.decode_msg(tmpl, data)
+    if chr(header['message_type']) == MESSAGE_SWITCH_CHANGE:
+        handle_MESSAGE_SWITCH_CHANGE(header['source'], msg)
+    if chr(header['message_type']) == MESSAGE_COLOR_CHANGE:
+        print "Master doesn't handle MESSAGE_COLOR_CHANGE"
+
+
+def decode_header(data):
     msg = dict()
-    tmpl = TEMPLATES[chr(data[0])]
+    msg['source'] = (data[0] << 8) + data[1]
+    msg['destination'] = (data[2] << 8) + data[3]
+    msg['message_type'] = data[4]
+    return msg
+
+def encode_header(msg):
+    data = list()
+    data += list(struct.pack(">I", msg['source'][2:]))
+    data += list(struct.pack(">I", msg['destination'][2:]))
+    data += list(msg['message_type'])
+    return msg
+
+def decode_msg(tmpl, data):
+    msg = dict()
     for i in range(len(data[1:])):
         field = tmpl[i]
         msg[field] = data[i+1]
     return msg
 
-def process_data(data):
-    msg = decode_data(data)
-    if chr(data[0]) == RST_ADDR:
-        pass #only relevent for slave
-    elif chr(data[0]) == REQ_ADDR:
-        handle_REQ_ADDR(msg)
-    elif chr(data[0]) == ASN_ADDR:
-        pass #only relevent for slave
-    elif chr(data[0]) == BTN_PRESS:
-        handle_BTN_PRESS(msg)
-    elif chr(data[0]) == CALIB_MODE:
-        pass #only relevent for slave
-    elif chr(data[0]) == SET_COLOR:
-        pass #only relevent for slave
+def encode_msg(header, msg):
+    data = bytearray(self.encode_header(header))
+    for field in TEMPLATES[header['message_type']]:
+        data.append(chr(data[field]))
+    return data
 
-def handle_REQ_ADDR(msg):
-    print "REQ_ADDR  "+str(msg)
-    btn = Button()
-    btn.grp_idx = len(GROUP_INDEXES)
-    GROUP_INDEXES.append(btn)
-    
-    reply = {'rnd': msg['rnd'], 'grp_idx':btn.grp_idx}
-    s.send(encode_message(ASN_ADDR, reply))
+def slip_encode(data):
+    encoded = bytearray([SLIP_END])
+    for byte in data:
+        if byte == SLIP_END:
+            encoded.append(SLIP_ESC)
+            encoded.append(SLIP_ESC_END)
+        elif byte == SLIP_ESC:
+            encoded.append(SLIP_ESC)
+            encoded.append(SLIP_ESC_ESC)
+        else:
+            encoded.append(byte)
+    encoded.append(SLIP_END)
+    return encoded
 
-def handle_BTN_PRESS(msg):
-    btn = GROUP_INDEXES[msg['grp_idx']]
-    if btn.mode == MODE_CALIB:
-        print 'BTN_PRESS (calibration) '+str(msg)
+def handle_MESSAGE_SWITCH_CHANGE(source, msg):
+    global MODE
+    if MODE == MODE_CALIB:
+        print 'RCV MESSAGE_SWITCH_CHANGE (calibration) '+str(source)+"  "+str(msg)
+        if source in GROUP_ADDRESSES:
+            print "Already calibrated this button"
+            return
+        btn = Button()
+        btn.rnd = source
+        GROUP_ADDRESSES[str(source)] = btn
+        # find first unoccupied spot by scanning through
         for r in sorted(BUTTON_STATES.keys()):
             for c in sorted(BUTTON_STATES[r].keys()):
                 if not BUTTON_STATES[r][c]:
                     btn.position = (r, c)
-                    btn.button_config = [0,1,2,3][msg['btn_idx']:] + [0,1,2,3][:msg['btn_idx']]
-                    btn.mode = MODE_NORMAL
+                    # infer group orientation
+                    btn.button_config = [0,1,2,3][msg['switch_index']:] + [0,1,2,3][:msg['switch_index']]
                     BUTTON_STATES[r][c] = btn
-                    s.send(encode_message(SET_COLOR, {'grp_idx':btn.grp_idx, 'btn_idx':msg['btn_idx'], 'rv':0xFF, 'gv':0x00, 'bv':0x00}))
+                    btn.set_color(switch_index=msg['switch_index'], red=0xFF, green=0x00, blue=0x00)
                     break
             if btn.position: break
+        if len(GROUP_ADDRESSES) == 9:
+            MODE = MODE_NORMAL
+            print_pixel_config()
+            # TODO: write config to disk
     else:
-        print 'BTN_PRESS '+str(msg)
-        btn = GROUP_INDEXES[msg['grp_idx']]
+        print 'RCV MESSAGE_SWITCH_CHANGE '+str(source)+"  "+str(msg)
+        btn = GROUP_ADDRESSES[source]
         new_color = (random.randrange(0x00, 0xFF), random.randrange(0x00, 0xFF), random.randrange(0x00, 0xFF))
-        btn.colors[msg['btn_idx']] = new_color
-        s.send(encode_message(SET_COLOR, {'grp_idx':btn.grp_idx, 'btn_idx':msg['btn_idx'], 'rv':new_color[0], 'gv':new_color[1], 'bv':new_color[2]}))
-        print "SET_COLOR  grp: "+str(btn.grp_idx)+"  btn: "+str(msg['btn_idx'])+"  color: "+str(new_color)
+        btn.set_color(switch_index=msg['switch_index'], red=new_color[0], green=new_color[1], blue=new_color[2])
 
-def initialize_buttons():
-    global MODE
-    MODE = MODE_INIT
-    
-    data = encode_message(RST_ADDR, {})
-    s.send(data)
-
-    while len(GROUP_INDEXES) < 9:
-        try:
-            byte = s.recv(1)
-            if len(byte)==0:
-                continue
-            handle_byte(byte)
-        except socket.timeout:
-            time.sleep(0.00001)
-            continue
-
-def calibrate_buttons():
+def calibration_mode():
     global MODE
     MODE = MODE_CALIB
+    print "Calibrating - step on button groups in order, top left button"
     
-    for btn in GROUP_INDEXES:
-        s.send(encode_message(CALIB_MODE, {'grp_idx':btn.grp_idx}))
-        btn.mode = MODE_CALIB
-    
-    
-    while not all(map(lambda b: b.mode == MODE_NORMAL, GROUP_INDEXES)):
-        try:
-            byte = s.recv(1)
-            if len(byte)==0:
-                continue
-            handle_byte(byte)
-        except socket.timeout:
-            time.sleep(0.00001)
-            continue
-    
-    MODE = MODE_NORMAL
+    for btn in GROUP_ADDRESSES.values():
+        for switch_index in range(4):
+            btn.set_color(switch_index=switch_index, red=new_color[0], green=new_color[1], blue=new_color[2])
 
 def pixel_to_button(x, y):
-    grp_idx = (y/2)*3 + x/2
-    btn = GROUP_INDEXES[grp_idx]
-    btn_idx = btn.button_config[(y%2)*2 + x%2]
-    # btn_idx = [0,1,2,3][(y%2)*2 + x%2]
-    return (grp_idx, btn_idx)
+    btn = BUTTON_STATES[str(y/2)][str(x/2)]
+    switch_index = btn.button_config[(y%2)*2 + x%2]
+    return (btn, switch_index)
 
 def print_button_config():
     for r in sorted(BUTTON_STATES.keys()):
         row_str = ""
         for c in sorted(BUTTON_STATES[r].keys()):
             btn = BUTTON_STATES[r][c]
-            # row_str += str(btn.grp_idx)+" "+str(btn.position)+"\t"
-            row_str += str(btn.grp_idx)+" "+str(btn.button_config)+"\t"
-            # row_str += str(btn.grp_idx)+"\t"
+            row_str += str(btn.rnd)+" "+str(btn.button_config)+"\t"
+            # row_str += str(btn.rnd)+"\t"
         print row_str
 
 def print_pixel_config():
     for y in range(6):
         row_str = ""
         for x in range(6):
-            grp_idx, btn_idx = pixel_to_button(x, y)
-            btn = GROUP_INDEXES[grp_idx]
-            # row_str += str(btn.grp_idx)+" "+str(btn.position)+"\t"
-            row_str += str(btn.grp_idx)+" "+str(btn.button_config[btn_idx])+"\t"
-            # row_str += str(btn.grp_idx)+"\t"
+            btn, switch_index = pixel_to_button(x, y)
+            row_str += str(btn.rnd)+" "+str(btn.button_config[switch_index])+"\t"
         print row_str
+
+def set_pattern_outline():
+    # Send colors for an outline of the floor
+    for y in range(6):
+        for x in range(6):
+            if x in [0,5] or y in [0, 5]:
+                new_color = (0xFF, 0xFF, 0xFF)
+                btn, switch_index = pixel_to_button(x, y)
+                btn.set_color(switch_index=switch_index, red=new_color[0], green=new_color[1], blue=new_color[2])
 
 
 def listen():
+    print "Listening"
     while True:
         try:
             byte = s.recv(1)
             if len(byte)==0:
+                s.connect((HOST, PORT))
                 continue
             handle_byte(byte)
         except socket.timeout:
@@ -286,24 +289,16 @@ def listen():
             continue
 
 
-initialize_buttons()
 
-calibrate_buttons()
+# TODO: try to load config from disk
+config = None
+if config:
+    pass
+else:
+    calibration_mode()
 
-# print_button_config()
-print_pixel_config()
 
 listen()
-
-# data = encode_message({'source':0, 'destination':1, 'square_index':2, 'color':3})
-# s.send(data)
-
-# data = encode_message({'source':4, 'destination':5, 'square_index':6, 'color':7})
-# s.send(data)
-# s.send(bytearray('foo'))
-
-# data = encode_message({'source':0, 'destination':1, 'square_index':2, 'color':3})
-# s.send(data)
 
 
 s.close()
