@@ -1,3 +1,7 @@
+#!/usr/bin/python
+
+#http://johanneshoff.com/arduino-command-line.html
+
 import serial
 import time
 import sys
