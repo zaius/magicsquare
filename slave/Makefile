@@ -10,6 +10,8 @@ MMCU=atmega8
 
 CC=avr-gcc
 OBJCOPY=avr-objcopy
+PORT=/dev/cu.PL2303-*
+MODEL=stk500v2
 
 CFLAGS=-mmcu=$(MMCU) -Wall -O2 -std=c99
 SOURCES=main.c network.c switch.c slip.c message.c led.c
@@ -23,13 +25,14 @@ hex: binary
 
 
 fuses:
-	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* $(FUSES)
-program:
-	avrdude -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U flash:w:build/build.hex
+	avrdude -p $(MMCU) -c $(MODEL) -P $(PORT) $(FUSES)
+	# avrdude -p $(MMCU) -c stk500 -P /dev/cu.usbserial-* $(FUSES)
+program: hex
+	avrdude -p $(MMCU) -c $(MODEL) -P $(PORT) -U flash:w:build/build.hex
+eeprom: ADDRESS=`hexdump -n 2 -v -e '"%04x"' /dev/random`
 eeprom:
 	# Generate a random hardware address
-	ADDRESS=`hexdump -n 2 -v -e '"%04x"' /dev/random`
-	avrdide -p $(MMCU) -c stk500v2 -P /dev/cu.PL2303-* -U eeprom:w:0x$(ADDRESS):m
+	avrdude -p $(MMCU) -c stk500 -P $(PORT) -U eeprom:w:0x$(ADDRESS):m
 
 
 clean:

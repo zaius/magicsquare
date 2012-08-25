@@ -29,7 +29,7 @@ int main(void) {
     // Switch to idle sleep (the default, so no need to use set_sleep_mode)
     // TODO: check that USART and LEDs still run in idle sleep.
     // TODO: Find out cycles to go in / out of sleep and make sure it's worth it
-    sleep_mode();
+    // sleep_mode();
   }
 }
 
@@ -44,7 +44,7 @@ void timer_init() {
   // TCCR2 - Timer / Counter 2 Control Register
   // Bits 2,1,0 - CS12, CS11, CS10: Clock Select1
   // CS21 means use a prescaler 8. i.e. the timer increments every 8 cpu cycles.
-  TCCR0 = _BV(CS21);
+  TCCR2 = _BV(CS21);
   // OCR2 - Timer 2 Output Compare Register
   // Fire every 72 * 8 = 576 cycles.
   OCR2 = 72;

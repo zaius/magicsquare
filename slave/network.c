@@ -1,10 +1,19 @@
+// TODO:
+// * don't transmit when we're receiving? would need a timeout...
+// * handle collisions
+// * handle TXEN/RXEN pins
+// * add checksum
+// * Fix multiple transmissions
+// * fix overwriting buffer when receiving / sending at the same itme
 #include "conf.h"
 
 #include <avr/eeprom.h>
 #include "network.h"
 
 #define TXEN_PORT PORTD
-#define TXEN_PIN 2
+#define TXEN_PIN 3
+#define RXEN_PORT PORTD
+#define RXEN_PIN 2
 
 // From datasheet: BAUD = FREQUENCY / 16*(UBRR+1)
 #define BAUD_PRESCALE (((F_CPU / (BAUD * 16UL))) - 1)
@@ -45,36 +54,44 @@ void network_init() {
 
 
 
-// Circular buffer for storing packet
-uint8_t buffer[MAX_PACKET_SIZE], read_index, buffer_length;
-uint8_t buffer_putc(uint8_t in) {
+uint8_t buffer_putc(BUFFER* buffer, uint8_t in) {
   // Queue full
-  if (buffer_length >= MAX_PACKET_SIZE) { return 0; }
+  if (buffer->length >= MAX_PACKET_SIZE) { return 0; }
 
-  uint8_t write_index = (read_index + buffer_length) % MAX_PACKET_SIZE;
-  buffer[write_index] = in;
-  buffer_length++;
+  uint8_t write_index = (buffer->read_index + buffer->length) % MAX_PACKET_SIZE;
+  buffer->data[write_index] = in;
+  buffer->length++;
   return 1;
 }
-uint8_t buffer_getc(uint8_t* out) {
+uint8_t buffer_getc(BUFFER* buffer, uint8_t* out) {
   // Queue empty
-  if (buffer_length == 0) { return 0; }
+  if (buffer->length == 0) { return 0; }
 
-  *out = buffer[read_index];
-  read_index = (read_index + 1) % MAX_PACKET_SIZE;
-  buffer_length--;
+  *out = buffer->data[buffer->read_index];
+  buffer->read_index = (buffer->read_index + 1) % MAX_PACKET_SIZE;
+  buffer->length--;
   return 1;
 }
 
+// Initialize to zero
+BUFFER rx_buffer = {}, tx_buffer = {};
 void network_send(uint8_t* new_data, uint8_t data_length) {
-  uint8_t i, out, transmitting = buffer_length > 0;
+  uint8_t transmitting = tx_buffer.length > 0;
 
   // Queue the data up
-  for (i = 0; i < data_length; i++) { buffer_putc(new_data[i]); }
+  for (uint8_t i = 0; i < data_length; i++) {
+    buffer_putc(&tx_buffer, new_data[i]);
+  }
 
-  if (!transmitting && buffer_getc(&out)) {
-    // Starting a new transmission. Enable rs485 transmit.
-    TXEN_PORT &= ~_BV(TXEN_PIN);
+  uint8_t out;
+  if (!transmitting && buffer_getc(&tx_buffer, &out)) {
+    // Starting a new transmission. Enable rs485 transmit. Disable receiving.
+    TXEN_PORT |= _BV(TXEN_PIN);
+    // TODO: would be good to actually check the incoming byte, rather than
+    // just ignoring it. Then we could check for collisions. What's the best
+    // way to do this though? Maybe disable interrupts? Or have a flag in the
+    // receive interrupt?
+    RXEN_PORT |= _BV(RXEN_PIN);
     // Fire interrupt as soon as the bit is shifted out of UDR, not when its
     // done transmitting.
     UCSRB |= _BV(UDRIE);
@@ -90,7 +107,7 @@ void network_send(uint8_t* new_data, uint8_t data_length) {
 ISR(USART_UDRE_vect) {
   uint8_t out;
 
-  if (buffer_getc(&out)) {
+  if (buffer_getc(&rx_buffer, &out)) {
     UDR = out;
   } else {
     // We're at the end of the buffer. Wait until the transmission is actually
@@ -102,11 +119,14 @@ ISR(USART_UDRE_vect) {
 }
 
 ISR(USART_TXC_vect) {
-  // A new message could have hit the buffer between UDRE and TXC.
-  // TODO: fix this
-  if (buffer_length > 0) { return; }
+  // Disable this interrupt
+  UCSRB &= ~_BV(TXCIE);
+
+  // A new message could have hit the buffer between UDRE and TXC. Just need
+  // to ignore this interrupt and wait for the next UDRE.
+  if (tx_buffer.length > 0) { return; }
 
   // Finish the transmission
 	TXEN_PORT &= ~_BV(TXEN_PIN);
-  UCSRB &= ~_BV(TXCIE);
+	RXEN_PORT &= ~_BV(RXEN_PIN);
 }
