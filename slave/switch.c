@@ -9,9 +9,9 @@
 // Initialise the external interrupt
 void switch_init() {
   // Switches to input
-  DDRD &= ~SWITCHES;
+  DDRD &= ~SWITCHES_MASK;
   // Switches have hardware pulldowns - deactivate internal pullup
-  PORTD &= ~SWITCHES;
+  PORTD &= ~SWITCHES_MASK;
 }
 
 
@@ -23,7 +23,7 @@ void switch_timer() {
   for (uint8_t i = 3; i > 0; i--) {
     switches_history[i] = switches_history[i - 1];
   }
-  switches_history[0] = PIND & SWITCHES;
+  switches_history[0] = PIND & SWITCHES_MASK;
 
   // Wait for next timer interrupt if history values aren't all equal
   for (uint8_t i = 0; i < 3; i++) {
@@ -46,14 +46,7 @@ void switch_timer() {
 
       // MESSAGE_SWITCH_CHANGE switch_change = { switch_index, switch_bool };
       // message_send(&switch_change);
-      COLOR* color = &colors[switch_index];
-      if (color->red) {
-        set_color(switch_index, 0, 0xff, 0);
-      } else if (color->green) {
-        set_color(switch_index, 0, 0, 0xff);
-      } else {
-        set_color(switch_index, 0xff, 0, 0);
-      }
+      cycle_rgb(switch_index);
     }
   }
 }

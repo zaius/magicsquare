@@ -19,27 +19,27 @@ void set_color(uint8_t index, uint8_t red, uint8_t green, uint8_t blue) {
   colors[index] = (COLOR){ red, green, blue };
 }
 
-// TODO: work out why it doesn't work for LEDS
-// volatile uint8_t* LEDS[] = { &LED1, &LED2, &LED3, &LED4 };
-const uint8_t LED_MASKS[] = { LED1_MASK, LED2_MASK, LED3_MASK, LED4_MASK };
-const uint8_t REDS[] = { RED1, RED2, RED3, RED4 };
-const uint8_t GREENS[] = { GREEN1, GREEN2, GREEN3, GREEN4 };
-const uint8_t BLUES[] = { BLUE1, BLUE2, BLUE3, BLUE4 };
-
 // We do a 255 length cycle of all the LEDs.
 // A better version would space the on / off sections of the cycle out a bit
 // better. This might be easy to do with some modulus trickery.
-uint8_t cycle = 0;
+
+uint8_t duty_cycle = 0;
 void led_timer() {
+  uint8_t LED_MASKS[4] = { LED1_MASK, LED2_MASK, LED3_MASK, LED4_MASK };
+  uint8_t REDS[4] = { RED1, RED2, RED3, RED4 };
+  uint8_t GREENS[4] = { GREEN1, GREEN2, GREEN3, GREEN4 };
+  uint8_t BLUES[4] = { BLUE1, BLUE2, BLUE3, BLUE4 };
+
   for (uint8_t i = 0; i < 4; i++) {
     uint8_t color = 0;
-    if (cycle < colors[i].red) {
+
+    if (duty_cycle < colors[i].red) {
       color |= _BV(REDS[i]);
     }
-    if (cycle > colors[i].green) {
+    if (duty_cycle > colors[i].green) {
       color |= _BV(GREENS[i]);
     }
-    if (cycle > colors[i].blue) {
+    if (duty_cycle > colors[i].blue) {
       color |= _BV(BLUES[i]);
     }
 
@@ -49,5 +49,27 @@ void led_timer() {
     _set_with_mask(*led, LED_MASKS[i], color);
   }
 
-  cycle++;
+  duty_cycle++;
+}
+
+uint8_t current_colors[4] = { 0, 0, 0, 0 };
+void cycle_rgb(uint8_t switch_index) {
+  uint8_t LED_MASKS[4] = { LED1_MASK, LED2_MASK, LED3_MASK, LED4_MASK };
+  uint8_t REDS[4] = { RED1, RED2, RED3, RED4 };
+  uint8_t GREENS[4] = { GREEN1, GREEN2, GREEN3, GREEN4 };
+  uint8_t BLUES[4] = { BLUE1, BLUE2, BLUE3, BLUE4 };
+
+  uint8_t current_color = current_colors[switch_index] % 3 + 1;
+  current_colors[switch_index] = current_color;
+  uint8_t color = 0;
+  if (current_color == 1) {
+    color = _BV(REDS[switch_index]);
+  } else if (current_color == 2) {
+    color = _BV(GREENS[switch_index]);
+  } else {
+    color = _BV(BLUES[switch_index]);
+  }
+
+  volatile uint8_t* led = switch_index > 1 ? &PORTC : &PORTB;
+  _set_with_mask(*led, LED_MASKS[switch_index], color);
 }

@@ -9,7 +9,7 @@
 #define TRUE 1
 #define FALSE 0
 
-#define SWITCHES 0xf0
+#define SWITCHES_MASK 0xf0
 
 #define LED1 PORTB
 #define LED1_MASK 0x07

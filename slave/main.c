@@ -8,8 +8,9 @@
 void timer_init();
 
 int main(void) {
-  // Default to all output with pullups.
-  DDRB = DDRC = DDRD = 0xff;
+  // Default to all inputs with pullups. This can avoid high current draw on
+  // boot.
+  DDRB = DDRC = DDRD = 0;
   PORTB = PORTC = PORTD = 0xff;
 
   // Disable the analog comparitor before enabling interrupts, otherwise a
@@ -20,7 +21,7 @@ int main(void) {
   timer_init();
   switch_init();
   led_init();
-  network_init();
+  // network_init();
 
   // Enable interrupts
   sei();
@@ -72,11 +73,11 @@ void timer_init() {
 // work, but it would need to be enough levels for seamless fading.
 uint8_t switch_cycle = 0;
 ISR(TIMER2_COMP_vect) {
-  led_timer();
+  // led_timer();
 
-  // Switch debouncing should run once every 10ms or so. This timer fires once
-  // every 0.078125ms, so 128 cycles per switch timer.
-  if (++switch_cycle > 128) {
+  // Switch debouncing should run once every 2.5ms or so. This timer fires once
+  // every 0.078125ms, so 32 cycles per switch timer.
+  if (++switch_cycle > 32) {
     switch_timer();
     switch_cycle = 0;
   }
