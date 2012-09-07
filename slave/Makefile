@@ -28,7 +28,7 @@ fuses:
 	avrdude -p $(MMCU) -c $(MODEL) -P $(PORT) $(FUSES)
 	# avrdude -p $(MMCU) -c stk500 -P /dev/cu.usbserial-* $(FUSES)
 program: hex
-	./pulsedtr.py $(PORT)
+	/usr/bin/env python pulsedtr.py $(PORT)
 	avrdude -p $(MMCU) -c $(MODEL) -P $(PORT) -U flash:w:build/build.hex
 eeprom: ADDRESS=`hexdump -n 2 -v -e '"%04x"' /dev/random`
 eeprom:
