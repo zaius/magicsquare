@@ -4,13 +4,15 @@
 COLOR colors[4];
 
 void led_init() {
+  // Default LEDs to off
+  // Make sure to set this before setting to output, as if all LEDs are on, it
+  // can dip the power enough to cause a reset.
+  PORTB = 0;
+  PORTC = 0;
+
   // Set LEDs to output
   DDRB |= LED1_MASK | LED2_MASK;
   DDRC |= LED3_MASK | LED4_MASK;
-
-  // Default LEDs to off
-  PORTB = 0;
-  PORTC = 0;
 }
 
 void set_color(uint8_t index, uint8_t red, uint8_t green, uint8_t blue) {
